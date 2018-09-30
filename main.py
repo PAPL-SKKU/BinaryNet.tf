@@ -226,7 +226,7 @@ def main(argv=None):  # pylint: disable=unused-argument
         assert gfile.Exists(model_file), 'no model file named: ' + model_file
         gfile.Copy(model_file, FLAGS.checkpoint_dir + '/model.py')
 
-    m = importlib.import_module('.' +FLAGS.model, 'models')
+    m = importlib.import_module('models.' +FLAGS.model)
     data = get_data_provider(FLAGS.dataset, training=True)
 
     train(m.model, data,

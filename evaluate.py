@@ -86,7 +86,11 @@ def evaluate(model, dataset,
         return total_acc, total_loss
 
 def main(argv=None):  # pylint: disable=unused-argument
-  evaluate()
+  from models import BD_cifar10
+  test_acc, test_loss = evaluate(BD_cifar10.model, FLAGS.dataset,
+                                 batch_size=256, checkpoint_dir=FLAGS.checkpoint_dir)
+  print("Test Accuracy: %.3f" % test_acc)
+  print("Test Loss: %.3f" % test_loss)
 
 
 if __name__ == '__main__':
@@ -98,7 +102,7 @@ if __name__ == '__main__':
   tf.app.flags.DEFINE_string('model_name', 'model',
                              """Name of loaded model.""")
 
-  FLAGS.log_dir = FLAGS.checkpoint_dir+'/log/'
+  # FLAGS.log_dir = FLAGS.checkpoint_dir+'/log/'
       # Build the summary operation based on the TF collection of Summaries.
       # summary_op = tf.merge_all_summaries()
 
