@@ -15,6 +15,84 @@ def binarize(x):
         with g.gradient_override_map({"Sign": "Identity"}):
             return tf.sign(x)
 
+def BinaryDecomposedConvolution(nOutputPlane, kW, kH, dW=1, dH=1, num_act=5,
+        padding='VALID', bias=True, reuse=False, name='BinaryDecomposedConvolution'):
+
+    def b_conv2d(x, is_training=True):
+        nInputPlane = x.get_shape().as_list()[3]
+        def decomp(key):
+            w = tf.get_variable('weight'+key, [kH, kW, nInputPlane, nOutputPlane],
+                            initializer=tf.contrib.layers.xavier_initializer_conv2d())
+            w = tf.clip_by_value(w,-1,1)
+            return w
+
+        with tf.variable_scope(name, None,[x], reuse=reuse):
+            beta = tf.get_variable('beta', [num_act],
+                initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                collections=['BETAS',tf.GraphKeys.GLOBAL_VARIABLES,tf.GraphKeys.TRAINABLE_VARIABLES])
+
+            bin_x = binarize(x)
+
+            bin_out_list = []
+            for index in range(num_act):
+                bin_w = binarize(decomp(str(index)))
+                bin_out_list.append(
+                    beta[index] * tf.nn.conv2d(bin_x, bin_w, strides=[1, dH, dW, 1], padding=padding))
+
+            # Summing up tensors
+            bin_out = tf.convert_to_tensor(bin_out_list)
+            out = tf.reduce_sum(bin_out, axis=0)
+
+            '''
+            Note that we use binarized version of the input and the weights. Since the binarized function uses STE
+            we calculate the gradients using bin_x and bin_w but we update w (the full precition version).
+            '''
+            if bias:
+                b = tf.get_variable('bias', [nOutputPlane],initializer=tf.zeros_initializer)
+                out = tf.nn.bias_add(out, b)
+            return out
+    return b_conv2d
+
+def BinaryDecomposedConvolutionABC(nOutputPlane, kW, kH, dW=1, dH=1, num_act=3,
+        padding='VALID', bias=True, reuse=False, name='BinaryDecomposedConvolution'):
+    def b_conv2d(x, is_training=True):
+        nInputPlane = x.get_shape().as_list()[3]
+        with tf.variable_scope(name, None,[x], reuse=reuse):
+            w = tf.get_variable('weight', [kH, kW, nInputPlane, nOutputPlane],
+                            initializer=tf.contrib.layers.xavier_initializer_conv2d())
+            w = tf.clip_by_value(w,-1,1)
+
+            alpha = tf.get_variable('alpha', [num_act-1],
+                initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                collections=['ALPHAS',tf.GraphKeys.GLOBAL_VARIABLES,tf.GraphKeys.TRAINABLE_VARIABLES])
+            beta = tf.get_variable('beta', [num_act-1],
+                initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                collections=['BETAS',tf.GraphKeys.GLOBAL_VARIABLES,tf.GraphKeys.TRAINABLE_VARIABLES])
+
+            bin_w = binarize(w)
+            # bin_x = binarize(x)
+            bin_x_list = []
+
+            # Decompose activation using alpha and then convolve each
+            for index in range(num_act-1):
+                bin_x = binarize(x - alpha[index])
+                bin_x_list.append(
+                    beta[index] * tf.nn.conv2d(bin_x, bin_w, strides=[1, dH, dW, 1], padding=padding))
+
+            # Summing up tensors
+            bin_x = tf.convert_to_tensor(bin_x_list)
+            out = tf.reduce_sum(bin_x, axis=0)
+
+            '''
+            Note that we use binarized version of the input and the weights. Since the binarized function uses STE
+            we calculate the gradients using bin_x and bin_w but we update w (the full precition version).
+            '''
+            if bias:
+                b = tf.get_variable('bias', [nOutputPlane],initializer=tf.zeros_initializer)
+                out = tf.nn.bias_add(out, b)
+            return out
+    return b_conv2d
+
 def BinarizedSpatialConvolution(nOutputPlane, kW, kH, dW=1, dH=1,
         padding='VALID', bias=True, reuse=False, name='BinarizedSpatialConvolution'):
     def b_conv2d(x, is_training=True):
