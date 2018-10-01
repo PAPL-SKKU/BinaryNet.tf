@@ -3,6 +3,7 @@ import math
 from tensorflow.python.training import moving_averages
 from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.framework import ops
+import numpy as np
 
 def binarize(x):
     """
@@ -15,29 +16,41 @@ def binarize(x):
         with g.gradient_override_map({"Sign": "Identity"}):
             return tf.sign(x)
 
-def BinaryDecomposedConvolution(nOutputPlane, kW, kH, dW=1, dH=1, num_act=5,
+def BinaryDecomposedConvolution(nOutputPlane, kW, kH, dW=1, dH=1, num=5,
         padding='VALID', bias=True, reuse=False, name='BinaryDecomposedConvolution'):
 
     def b_conv2d(x, is_training=True):
         nInputPlane = x.get_shape().as_list()[3]
-        def decomp(key):
-            w = tf.get_variable('weight'+key, [kH, kW, nInputPlane, nOutputPlane],
+        def structural_decomp(idx):
+            w = tf.get_variable('weight'+str(idx), [kH, kW, nInputPlane, nOutputPlane],
                             initializer=tf.contrib.layers.xavier_initializer_conv2d())
             w = tf.clip_by_value(w,-1,1)
             return w
 
+        def value_decomp(idx, act):
+            # FIXME: This is just hardcoded for test, max_val might have to be determined by statistics
+            max_val = 1.5
+            alpha = np.linspace(-max_val, max_val, num)
+            return alpha[idx] - act
+
         with tf.variable_scope(name, None,[x], reuse=reuse):
-            beta = tf.get_variable('beta', [num_act],
+            # Scaling factors after convolution
+            beta = tf.get_variable('beta', [num],
                 initializer=tf.contrib.layers.xavier_initializer_conv2d(),
                 collections=['BETAS',tf.GraphKeys.GLOBAL_VARIABLES,tf.GraphKeys.TRAINABLE_VARIABLES])
 
-            bin_x = binarize(x)
+            # Binarize each components for activation (value-based) and weight (simply duplicated structure)
+            bin_x = []
+            bin_w = []
+            for index in range(num):
+                bin_w.append(binarize(structural_decomp(index)))
+                bin_x.append(binarize(value_decomp(index, x)))
 
+            # Perform binarized convolution and scaling
             bin_out_list = []
-            for index in range(num_act):
-                bin_w = binarize(decomp(str(index)))
-                bin_out_list.append(
-                    beta[index] * tf.nn.conv2d(bin_x, bin_w, strides=[1, dH, dW, 1], padding=padding))
+            for index in range(num):
+                bin_out_list.append(beta[index] *
+                    tf.nn.conv2d(bin_x[index], bin_w[index], strides=[1, dH, dW, 1], padding=padding))
 
             # Summing up tensors
             bin_out = tf.convert_to_tensor(bin_out_list)
