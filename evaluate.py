@@ -5,6 +5,7 @@ from __future__ import print_function
 from datetime import datetime
 import math
 import time
+import importlib
 from progress.bar import Bar
 
 import numpy as np
@@ -45,6 +46,7 @@ def evaluate(model, dataset,
                         )
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir+'/')
         if ckpt and ckpt.model_checkpoint_path:
+            print("Checkpoint file: "+ckpt.model_checkpoint_path)
         # Restores from checkpoint
             saver.restore(sess, ckpt.model_checkpoint_path)
         else:
@@ -86,8 +88,8 @@ def evaluate(model, dataset,
         return total_acc, total_loss
 
 def main(argv=None):  # pylint: disable=unused-argument
-  from models import BD_cifar10
-  test_acc, test_loss = evaluate(BD_cifar10.model, FLAGS.dataset,
+  m = importlib.import_module('models.' +FLAGS.model)
+  test_acc, test_loss = evaluate(m.model, FLAGS.dataset,
                                  batch_size=256, checkpoint_dir=FLAGS.checkpoint_dir)
   print("Test Accuracy: %.3f" % test_acc)
   print("Test Loss: %.3f" % test_loss)
@@ -99,7 +101,7 @@ if __name__ == '__main__':
                              """Directory where to read model checkpoints.""")
   tf.app.flags.DEFINE_string('dataset', 'cifar10',
                              """Name of dataset used.""")
-  tf.app.flags.DEFINE_string('model_name', 'model',
+  tf.app.flags.DEFINE_string('model', 'model',
                              """Name of loaded model.""")
 
   # FLAGS.log_dir = FLAGS.checkpoint_dir+'/log/'
