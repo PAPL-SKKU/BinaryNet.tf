@@ -43,10 +43,6 @@ tf.app.flags.DEFINE_string('log', 'ERROR',
                             """DEBUG, INFO, WARN, ERROR, or FATAL.""")
 
 
-FLAGS.checkpoint_dir +=FLAGS.save
-FLAGS.log_dir += '/log/'
-# tf.logging.set_verbosity(FLAGS.log)
-
 def count_params(var_list):
     num = 0
     for var in var_list:
@@ -219,6 +215,9 @@ def train(model, data,
 
 
 def main(argv=None):  # pylint: disable=unused-argument
+    FLAGS.checkpoint_dir +=FLAGS.save
+    FLAGS.log_dir += '/log/'
+    # tf.logging.set_verbosity(FLAGS.log)
     if not gfile.Exists(FLAGS.checkpoint_dir):
         # gfile.DeleteRecursively(FLAGS.checkpoint_dir)
         gfile.MakeDirs(FLAGS.checkpoint_dir)
@@ -228,7 +227,6 @@ def main(argv=None):  # pylint: disable=unused-argument
 
     m = importlib.import_module('models.' +FLAGS.model)
     data = get_data_provider(FLAGS.dataset, training=True)
-
     train(m.model, data,
           batch_size=FLAGS.batch_size,
           checkpoint_dir=FLAGS.checkpoint_dir,

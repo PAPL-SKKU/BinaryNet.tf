@@ -44,7 +44,7 @@ def evaluate(model, dataset,
                             gpu_options=gpu_options,
                             )
                         )
-        ckpt = tf.train.get_checkpoint_state(checkpoint_dir+'/')
+        ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
         if ckpt and ckpt.model_checkpoint_path:
             print("Checkpoint file: "+ckpt.model_checkpoint_path)
         # Restores from checkpoint
