@@ -29,8 +29,7 @@ def BinaryDecomposedConvolution(nOutputPlane, kW, kH, dW=1, dH=1, num=5,
 
         def value_decomp(idx, act):
             # FIXME: This is just hardcoded for test, max_val might have to be determined by statistics
-            max_val = 1.5
-            alpha = np.linspace(-max_val, max_val, num)
+            alpha = range(-num, num + 1, 1)
             return alpha[idx] - act
 
         with tf.variable_scope(name, None,[x], reuse=reuse):
